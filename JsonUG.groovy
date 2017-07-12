@@ -29,24 +29,32 @@ def text = '''{"widget": {
         "alignment": "center",
         "onMouseUp": "IMG.opacity = (IMG.opacity / 100) * 90;"
     }
+    
 }}  
 
 '''
-def jsonSlurper = new JsonSlurper()
-def object
-try {
-    object = jsonSlurper.parseText(text)
-} catch (exc) {
-    print "ERROR: INVALID JSON"
-    return;
-}
+def dateFormat = 'yyyy-MM-dd'
 
-def filesThatWillBeGenerated = new HashSet<String>()
-def filesThatWouldBeOverriden = new ArrayList<String>()
-filesThatWillBeGenerated.add('Cv.java')
-getClassesThatWillBeGenerated(object, filesThatWillBeGenerated)
-def currentDir = new File('.')
-currentDir.eachFile { x -> if (filesThatWillBeGenerated.contains(x.toString().substring(2))) filesThatWouldBeOverriden.add(x) }
+generate(text,"TopLevel",dateFormat,"subFolder/sun/subsub")
+
+def generate(String text, String topLevelName, dateFormat, rootFolder) {
+    def jsonSlurper = new JsonSlurper()
+    def object
+    try {
+        object = jsonSlurper.parseText(text)
+    } catch (exc) {
+        print "ERROR: INVALID JSON"
+        return;
+    }
+
+    def filesThatWillBeGenerated = new HashSet<String>()
+    def filesThatWouldBeOverriden = new ArrayList<String>()
+    filesThatWillBeGenerated.add(rootFolder+"/"+topLevelName.capitalize()+'.java')
+    getClassesThatWillBeGenerated(object, filesThatWillBeGenerated,rootFolder)
+    def folderMakerHelper = ""
+    rootFolder.split("/").each {new File(folderMakerHelper+=it+"/").mkdir()}
+    def currentDir = new File(rootFolder)
+    currentDir.eachFile { x -> if (filesThatWillBeGenerated.contains(x.toString().substring(2))) filesThatWouldBeOverriden.add(x) }
 
 //if (filesThatWouldBeOverriden.size() != 0) {
 //    print "WARNING: following files would be overriden " + filesThatWouldBeOverriden + "\n"
@@ -54,18 +62,17 @@ currentDir.eachFile { x -> if (filesThatWillBeGenerated.contains(x.toString().su
 //    return
 //}
 
-def f = new File('Cv.java')
-f.write("class" + " Cv{\n")
-def dateFormat = 'yyyy-MM-dd'
+    def f = new File(rootFolder+"/"+topLevelName.capitalize()+'.java')
+    f.write("class " + topLevelName.capitalize()+"{\n")
 
-generateClass(object, f, dateFormat, "Cv")
-print "finished"
+    generateClass(object, f, dateFormat, topLevelName.capitalize(),rootFolder)
+    print "finished"
+}
 
-
-static Object generateClass(object, file, dateFormat, name) {
+static Object generateClass(object, file, dateFormat, name, String rootFolder) {
 
     if (object.class == ArrayList.class)
-        return generateClass(object.get(0), file, dateFormat, name)
+        return generateClass(object.get(0), file, dateFormat, name, rootFolder)
 
     def temp;
     try {
@@ -79,9 +86,9 @@ static Object generateClass(object, file, dateFormat, name) {
                 print(key.capitalize() + " " + key)
                 file.append("\tprivate " + key.capitalize() + " " + key + ";\n")
                 println ""
-                def f = new File(key.capitalize() + '.java')
+                def f = new File(rootFolder+"/"+key.capitalize() + '.java')
                 f.write("class " + key.capitalize() + "{\n")
-                generateClass(temp, f, dateFormat, key)
+                generateClass(temp, f, dateFormat, key,rootFolder)
 
 
             } else if (temp.class == ArrayList.class) {
@@ -92,9 +99,9 @@ static Object generateClass(object, file, dateFormat, name) {
                 } else if (temp.getAt(0).class == object.class) {
                     println(temp.class.toString().substring(6) + "<" + key.capitalize() + "> " + key)
                     file.append("\tprivate " + "java.util.List" + "<" + key.capitalize() + "> " + key + ";\n")
-                    def f = new File(key.capitalize() + '.java')
+                    def f = new File(rootFolder+"/"+key.capitalize() + '.java')
                     f.write("class " + key.capitalize() + "{\n")
-                    generateClass(temp.getAt(0), f, dateFormat, key)
+                    generateClass(temp.getAt(0), f, dateFormat, key,rootFolder)
                 } else {
                     println(temp.class.toString().substring(6) + "<" + temp.getAt(0).class.toString().substring(6) + "> " + key)
                     file.append("\tprivate " + "java.util.List" + "<" + temp.getAt(0).class.toString().substring(6) + "> " + key + ";\n")
@@ -133,7 +140,7 @@ static Object generateClass(object, file, dateFormat, name) {
 }
 
 
-static void getClassesThatWillBeGenerated(object, HashSet<String> listOfFiles) {
+static void getClassesThatWillBeGenerated(object, HashSet<String> listOfFiles,rootFolder) {
 
     def temp;
     try {
@@ -143,12 +150,12 @@ static void getClassesThatWillBeGenerated(object, HashSet<String> listOfFiles) {
             temp = object.getAt(key)
             // print  object.getAt(obj)
             if (temp.class == object.class) {
-                listOfFiles.add(key.capitalize() + '.java')
-                getClassesThatWillBeGenerated(temp, listOfFiles)
+                listOfFiles.add(rootFolder+"/"+key.capitalize() + '.java')
+                getClassesThatWillBeGenerated(temp, listOfFiles,rootFolder)
             } else if (temp.class == ArrayList.class && temp.getAt(0).class == object.class) {
 
-                listOfFiles.add(key.capitalize() + '.java')
-                getClassesThatWillBeGenerated(temp.getAt(0), listOfFiles)
+                listOfFiles.add(rootFolder+"/"+key.capitalize() + '.java')
+                getClassesThatWillBeGenerated(temp.getAt(0), listOfFiles,rootFolder)
 
             }
 
